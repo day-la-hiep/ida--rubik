@@ -11,13 +11,12 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
-            <version>24.0.1</version>
+            <version>23.0.2</version>
         </dependency>
-
     </dependencies>
     <properties>
-        <maven.compiler.source>24</maven.compiler.source>
-        <maven.compiler.target>24</maven.compiler.target>
+        <maven.compiler.source>23</maven.compiler.source>
+        <maven.compiler.target>23</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <build>
@@ -27,7 +26,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>HelloFX</mainClass>
+                    <mainClass>com.noface.RubikApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>
