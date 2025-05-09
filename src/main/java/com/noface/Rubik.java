@@ -1,9 +1,6 @@
 package com.noface;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 //               ----------------
 //               | 0  | 1  | 2  |
@@ -36,6 +33,31 @@ public class Rubik {
         for (int i = 0; i < 9; i++) cube.add('R');
         for (int i = 0; i < 9; i++) cube.add('B');
         for (int i = 0; i < 9; i++) cube.add('D');
+    }
+    public Rubik(List<Character> cube) {
+        this.cube = new ArrayList<>(cube);
+
+    }
+
+    public Rubik(Rubik rubik) {
+        this.cube = new ArrayList<>(rubik.cube);
+    }
+
+    public List<Runnable> getActions(){
+        return Arrays.asList(
+                this::moveU,
+                this::moveUPrime,
+                this::moveD,
+                this::moveDPrime,
+                this::moveL,
+                this::moveLPrime,
+                this::moveR,
+                this::moveRPrime,
+                this::moveF,
+                this::moveFPrime,
+                this::moveB,
+                this::moveBPrime
+        );
     }
 
     private void rotateFaceClockwise(int startIndex) {
@@ -130,7 +152,7 @@ public class Rubik {
     public void moveRPrime() {
         rotateFaceCounterClockwise(27);
         int[] u = {8, 5, 2}, b = {36, 39, 42}, d = {53, 50 ,47}, f = {26, 23, 20};
-        rotateEdgeClockwise(u, b, d, f);
+        rotateEdgeCounterClockwise(u, b, d, f);
     }
     /*
         Chỉ số theo mặt trước  và các chỉ số liên quan
@@ -171,7 +193,50 @@ public class Rubik {
         int[] u = {2, 1, 0}, r = {9, 12, 15}, d = {51, 52, 53}, l = {35, 32, 29};
         rotateEdgeCounterClockwise(u, r, d, l);
     }
-
+    public void applyMove(String moveName) {
+        switch (moveName) {
+            case "U":
+                moveU();
+                break;
+            case "U'":
+                moveUPrime();
+                break;
+            case "D":
+                moveD();
+                break;
+            case "D'":
+                moveDPrime();
+                break;
+            case "L":
+                moveL();
+                break;
+            case "L'":
+                moveLPrime();
+                break;
+            case "R":
+                moveR();
+                break;
+            case "R'":
+                moveRPrime();
+                break;
+            case "F":
+                moveF();
+                break;
+            case "F'":
+                moveFPrime();
+                break;
+            case "B":
+                moveB();
+                break;
+            case "B'":
+                moveBPrime();
+                break;
+            // Nếu bạn thêm U2, F2... vào MOVES trong IDASolver, cần thêm case ở đây
+            // case "U2": moveU(); moveU(); break; // Ví dụ
+            default:
+                System.err.println("Unknown move: " + moveName);
+        }
+    }
     // ======== Công cụ hoán đổi cạnh ========
     private void rotateEdgeClockwise(int[] a, int[] b, int[] c, int[] d) {
         char[] temp = new char[a.length];
@@ -186,11 +251,104 @@ public class Rubik {
         rotateEdgeClockwise(d, c, b, a);
     }
 
+    // THÊM: Override equals và hashCode (quan trọng cho việc so sánh trạng thái nếu
+    // cần)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        Rubik rubik = (Rubik) o;
+        return Objects.equals(cube, rubik.cube);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(cube);
+    }
+
     // ======================
     public void print() {
         for (int i = 0; i < 54; i++) {
             System.out.print(cube.get(i) + " ");
             if ((i + 1) % 9 == 0) System.out.println();
         }
+    }
+    public BitSet extractCornerState() {
+        Rubik rubik = this;
+        BitSet bits = new BitSet(72);
+        for (int i = 0; i < 6; i++) {
+            int[] cornerIndex = {i * 9, i * 9 + 2, i * 9 + 6, i * 9 + 8};
+            for(int j = 0; j < 4; j++){
+                int value = faceCharToIndex(rubik.getCube().get(cornerIndex[j]));
+                for(int k = 0; k < 3; k++){
+                    bits.set(i * 12 + j * 3 + k, (value & (1 << k)) != 0);
+                }
+            }
+
+        }
+        return bits;
+    }
+
+    public Rubik importCornerState(BitSet cornerState) {
+        Rubik rubik = this;
+        for(int i = 0; i < 6; i++){
+            int[] cornerIndex = {i * 9, i * 9 + 2, i * 9 + 6, i * 9 + 8};
+            for(int j = 0; j < 4; j++){
+                int value = 0;
+                for(int k = 0; k < 3; k++){
+                    if(cornerState.get(i * 12 +j* 3 + k)){
+                        value |= (1 << k);
+                    }
+                }
+                indexToFaceChar(value);
+                rubik.getCube().set(cornerIndex[j], indexToFaceChar(value));
+            }
+        }
+
+        return this;
+    }
+
+    public static int faceCharToIndex(Character face) {
+        switch (face) {
+            case 'U':
+                return 0;
+            case 'L':
+                return 1;
+            case 'F':
+                return 2;
+            case 'R':
+                return 3;
+            case 'B':
+                return 4;
+            case 'D':
+                return 5;
+            default:
+                throw new IllegalArgumentException("Invalid face: " + face);
+        }
+    }
+
+    public static Character indexToFaceChar(int index) {
+        switch (index) {
+            case 0:
+                return 'U';
+            case 1:
+                return 'L';
+            case 2:
+                return 'F';
+            case 3:
+                return 'R';
+            case 4:
+                return 'B';
+            case 5:
+                return 'D';
+            default:
+                throw new IllegalArgumentException("Invalid index: " + index);
+        }
+    }
+
+    public List<Character> getCube() {
+        return cube;
     }
 }

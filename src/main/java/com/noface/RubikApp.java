@@ -12,17 +12,25 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+// ... (các import giữ nguyên)
+import javafx.scene.control.TextArea; // THÊM import này
+import javafx.scene.control.ScrollPane; // THÊM import này
+import javafx.scene.control.Alert; // THÊM import này
+import javafx.application.Platform; // THÊM import này
+
+import java.util.List; // THÊM import này
+import java.util.concurrent.CompletableFuture; // THÊM import này
 
 public class RubikApp extends Application {
     private static final int CUBIE_SIZE = 40;
     private static final int GAP = 2;
     private static final Color[] FACE_COLORS = {
-            Color.WHITE,    // U - Up (White)
-            Color.ORANGE,   // L - Left (Orange)
-            Color.GREEN,    // F - Front (Green)
-            Color.RED,      // R - Right (Red)
-            Color.BLUE,     // B - Back (Blue)
-            Color.YELLOW    // D - Down (Yellow)
+            Color.WHITE, // U - Up (White)
+            Color.ORANGE, // L - Left (Orange)
+            Color.GREEN, // F - Front (Green)
+            Color.RED, // R - Right (Red)
+            Color.BLUE, // B - Back (Blue)
+            Color.YELLOW // D - Down (Yellow)
     };
 
     private Rubik rubik = new Rubik();
@@ -32,6 +40,9 @@ public class RubikApp extends Application {
     private GridPane rightFace = new GridPane();
     private GridPane backFace = new GridPane();
     private GridPane downFace = new GridPane();
+
+    private TextArea solutionArea; // THÊM: Khu vực hiển thị các bước giải
+    private Button solveButton; // THÊM: Tham chiếu đến nút Solve
 
     @Override
     public void start(Stage primaryStage) {
@@ -50,6 +61,18 @@ public class RubikApp extends Application {
         // Create notation legend
         VBox legend = createNotationLegend();
         root.setRight(legend);
+
+        // THÊM: Khu vực hiển thị các bước giải
+        solutionArea = new TextArea();
+        solutionArea.setEditable(false);
+        solutionArea.setWrapText(true);
+        solutionArea.setPrefHeight(80);
+        ScrollPane scrollPane = new ScrollPane(solutionArea);
+        scrollPane.setFitToWidth(true);
+
+        VBox centerContent = new VBox(10, cubeNet, scrollPane); // Nhóm cubeNet và solutionArea
+        centerContent.setAlignment(Pos.CENTER);
+        root.setCenter(centerContent);
 
         // Initialize the cube display
         updateCubeVisual();
@@ -209,7 +232,7 @@ public class RubikApp extends Application {
     }
 
     private void shuffleCube() {
-        int moves = 20;
+        int moves = 5;
         for (int i = 0; i < moves; i++) {
             int move = (int) (Math.random() * 12);
             switch (move) {
@@ -240,19 +263,19 @@ public class RubikApp extends Application {
         downFace.getChildren().clear();
 
         // Update each face
-        updateFace(upFace, 0, 0);    // Up face
-        updateFace(leftFace, 9, 1);  // Left face
+        updateFace(upFace, 0, 0); // Up face
+        updateFace(leftFace, 9, 1); // Left face
         updateFace(frontFace, 18, 2); // Front face
         updateFace(rightFace, 27, 3); // Right face
-        updateFace(backFace, 36, 4);  // Back face
-        updateFace(downFace, 45, 5);  // Down face
+        updateFace(backFace, 36, 4); // Back face
+        updateFace(downFace, 45, 5); // Down face
     }
 
     private void updateFace(GridPane faceGrid, int startIndex, int faceIndex) {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
                 int index = startIndex + row * 3 + col;
-                char colorChar = rubik.cube.get(index);
+                char colorChar = rubik.getCube().get(index);
                 Color color = getColorForFace(faceIndex, index);
 
                 Rectangle cubie = new Rectangle(CUBIE_SIZE, CUBIE_SIZE, color);
@@ -265,7 +288,7 @@ public class RubikApp extends Application {
     }
 
     private Color getColorForFace(int face, int index) {
-        char colorChar = rubik.cube.get(index);
+        char colorChar = rubik.getCube().get(index);
         switch (colorChar) {
             case 'U': return FACE_COLORS[0]; // White
             case 'L': return FACE_COLORS[1]; // Orange
