@@ -342,7 +342,7 @@ public class RubikApp extends Application {
     }
 
     private void shuffleCube() {
-        int moves = 5;
+        int moves = 12;
         for (int i = 0; i < moves; i++) {
             int move = (int) (Math.random() * 12);
             switch (move) {
