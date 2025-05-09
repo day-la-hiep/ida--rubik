@@ -98,8 +98,7 @@ public class RubikApp extends Application {
         centerBox.getChildren().addAll(
                 createFacePanel("UP", upFace),
                 createFacePanel("FRONT", frontFace),
-                createFacePanel("DOWN", downFace)
-        );
+                createFacePanel("DOWN", downFace));
 
         // Right face
         VBox rightBox = new VBox();
@@ -139,33 +138,69 @@ public class RubikApp extends Application {
 
         // Up face controls
         VBox upControls = createFaceControls("U", "Up",
-                () -> { rubik.moveU(); updateCubeVisual(); },
-                () -> { rubik.moveUPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveU();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveUPrime();
+                    updateCubeVisual();
+                });
 
         // Down face controls
         VBox downControls = createFaceControls("D", "Down",
-                () -> { rubik.moveD(); updateCubeVisual(); },
-                () -> { rubik.moveDPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveD();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveDPrime();
+                    updateCubeVisual();
+                });
 
         // Left face controls
         VBox leftControls = createFaceControls("L", "Left",
-                () -> { rubik.moveL(); updateCubeVisual(); },
-                () -> { rubik.moveLPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveL();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveLPrime();
+                    updateCubeVisual();
+                });
 
         // Right face controls
         VBox rightControls = createFaceControls("R", "Right",
-                () -> { rubik.moveR(); updateCubeVisual(); },
-                () -> { rubik.moveRPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveR();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveRPrime();
+                    updateCubeVisual();
+                });
 
         // Front face controls
         VBox frontControls = createFaceControls("F", "Front",
-                () -> { rubik.moveF(); updateCubeVisual(); },
-                () -> { rubik.moveFPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveF();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveFPrime();
+                    updateCubeVisual();
+                });
 
         // Back face controls
         VBox backControls = createFaceControls("B", "Back",
-                () -> { rubik.moveB(); updateCubeVisual(); },
-                () -> { rubik.moveBPrime(); updateCubeVisual(); });
+                () -> {
+                    rubik.moveB();
+                    updateCubeVisual();
+                },
+                () -> {
+                    rubik.moveBPrime();
+                    updateCubeVisual();
+                });
 
         // Shuffle button
         Button shuffleBtn = new Button("Shuffle");
@@ -180,13 +215,88 @@ public class RubikApp extends Application {
         });
         resetBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 100;");
 
+        // THÊM: Nút Solve (IDA*)
+        solveButton = new Button("Solve (IDA*)");
+        solveButton.setOnAction(e -> solveCubeWithIDA());
+        solveButton.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
+
         controlPanel.getChildren().addAll(
                 upControls, downControls, leftControls,
                 rightControls, frontControls, backControls,
-                shuffleBtn, resetBtn
+                shuffleBtn, resetBtn, solveButton // THÊM solveButton vào đây
         );
 
         return controlPanel;
+    }
+
+    private void solveCubeWithIDA() {
+        solutionArea.setText(
+                "Solving with IDA*... Please wait.\nThis might take some time depending on the scramble depth and heuristic strength.");
+        solveButton.setDisable(true); // Vô hiệu hóa nút trong khi giải
+
+        Rubik currentScrambledRubik = new Rubik(this.rubik); // Tạo bản sao để giải, không ảnh hưởng đến rubik hiện tại
+                                                             // trên UI
+
+        // Chạy tác vụ giải trong một luồng riêng để không làm đóng băng UI
+        CompletableFuture.supplyAsync(() -> {
+            IDASolver solver = new IDASolver();
+            return solver.solve(currentScrambledRubik);
+        }).thenAcceptAsync(solutionSteps -> Platform.runLater(() -> { // Cập nhật UI trên luồng JavaFX
+            if (solutionSteps != null && !solutionSteps.isEmpty()) {
+                solutionArea.setText(
+                        "Solution found (" + solutionSteps.size() + " moves):\n" + String.join(" ", solutionSteps));
+                // Tùy chọn: Tự động áp dụng các bước giải lên Rubik trên UI
+                // applySolutionToGUICube(solutionSteps);
+            } else {
+                solutionArea.setText("No solution found within limits or an error occurred.");
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("IDA* Solver");
+                alert.setHeaderText(null);
+                alert.setContentText(
+                        "No solution found within the algorithm's limits, or the cube is already solved/heuristic issue.");
+                alert.showAndWait();
+            }
+            solveButton.setDisable(false); // Kích hoạt lại nút
+        })).exceptionally(ex -> { // Xử lý lỗi nếu có
+            Platform.runLater(() -> {
+                solutionArea.setText("Error during solving: " + ex.getMessage());
+                ex.printStackTrace();
+                solveButton.setDisable(false);
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("IDA* Solver Error");
+                alert.setHeaderText("An error occurred while trying to solve the cube.");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            });
+            return null;
+        });
+    }
+
+    // THÊM (Tùy chọn): Phương thức để áp dụng các bước giải lên Rubik trên UI
+    // Bạn có thể tạo một nút riêng để "Thực hiện các bước giải"
+    private void applySolutionToGUICube(List<String> solutionSteps) {
+        if (solutionSteps == null || solutionSteps.isEmpty())
+            return;
+
+        // Có thể thực hiện từ từ với một chút delay để người dùng thấy
+        Thread applyThread = new Thread(() -> {
+            for (String move : solutionSteps) {
+                Platform.runLater(() -> {
+                    this.rubik.applyMove(move);
+                    updateCubeVisual();
+                    solutionArea.appendText("\nApplied: " + move);
+                });
+                try {
+                    Thread.sleep(500); // Delay 0.5 giây giữa các bước
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            Platform.runLater(() -> solutionArea.appendText("\nFinished applying solution!"));
+        });
+        applyThread.setDaemon(true); // Để luồng tự thoát khi ứng dụng đóng
+        applyThread.start();
     }
 
     private VBox createFaceControls(String face, String faceName, Runnable clockwise, Runnable counterClockwise) {
@@ -236,18 +346,42 @@ public class RubikApp extends Application {
         for (int i = 0; i < moves; i++) {
             int move = (int) (Math.random() * 12);
             switch (move) {
-                case 0: rubik.moveU(); break;
-                case 1: rubik.moveUPrime(); break;
-                case 2: rubik.moveD(); break;
-                case 3: rubik.moveDPrime(); break;
-                case 4: rubik.moveL(); break;
-                case 5: rubik.moveLPrime(); break;
-                case 6: rubik.moveR(); break;
-                case 7: rubik.moveRPrime(); break;
-                case 8: rubik.moveF(); break;
-                case 9: rubik.moveFPrime(); break;
-                case 10: rubik.moveB(); break;
-                case 11: rubik.moveBPrime(); break;
+                case 0:
+                    rubik.moveU();
+                    break;
+                case 1:
+                    rubik.moveUPrime();
+                    break;
+                case 2:
+                    rubik.moveD();
+                    break;
+                case 3:
+                    rubik.moveDPrime();
+                    break;
+                case 4:
+                    rubik.moveL();
+                    break;
+                case 5:
+                    rubik.moveLPrime();
+                    break;
+                case 6:
+                    rubik.moveR();
+                    break;
+                case 7:
+                    rubik.moveRPrime();
+                    break;
+                case 8:
+                    rubik.moveF();
+                    break;
+                case 9:
+                    rubik.moveFPrime();
+                    break;
+                case 10:
+                    rubik.moveB();
+                    break;
+                case 11:
+                    rubik.moveBPrime();
+                    break;
             }
         }
         updateCubeVisual();
@@ -290,13 +424,20 @@ public class RubikApp extends Application {
     private Color getColorForFace(int face, int index) {
         char colorChar = rubik.getCube().get(index);
         switch (colorChar) {
-            case 'U': return FACE_COLORS[0]; // White
-            case 'L': return FACE_COLORS[1]; // Orange
-            case 'F': return FACE_COLORS[2]; // Green
-            case 'R': return FACE_COLORS[3]; // Red
-            case 'B': return FACE_COLORS[4]; // Blue
-            case 'D': return FACE_COLORS[5]; // Yellow
-            default: return Color.BLACK;
+            case 'U':
+                return FACE_COLORS[0]; // White
+            case 'L':
+                return FACE_COLORS[1]; // Orange
+            case 'F':
+                return FACE_COLORS[2]; // Green
+            case 'R':
+                return FACE_COLORS[3]; // Red
+            case 'B':
+                return FACE_COLORS[4]; // Blue
+            case 'D':
+                return FACE_COLORS[5]; // Yellow
+            default:
+                return Color.BLACK;
         }
     }
 

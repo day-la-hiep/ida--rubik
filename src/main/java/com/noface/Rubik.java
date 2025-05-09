@@ -39,8 +39,8 @@ public class Rubik {
 
     }
 
-    public Rubik(Rubik rubik) {
-        this.cube = new ArrayList<>(rubik.cube);
+    public Rubik(Rubik other) {
+        this.cube = new ArrayList<>(other.cube);
     }
 
     public List<Runnable> getActions(){
@@ -193,6 +193,8 @@ public class Rubik {
         int[] u = {2, 1, 0}, r = {9, 12, 15}, d = {51, 52, 53}, l = {35, 32, 29};
         rotateEdgeCounterClockwise(u, r, d, l);
     }
+
+    // THÊM: Phương thức áp dụng lượt xoay dựa trên tên
     public void applyMove(String moveName) {
         switch (moveName) {
             case "U":
@@ -237,6 +239,23 @@ public class Rubik {
                 System.err.println("Unknown move: " + moveName);
         }
     }
+
+    // THÊM: Kiểm tra trạng thái đã giải
+    public boolean isSolved() {
+        // Giả định trạng thái giải là trạng thái được tạo bởi constructor Rubik()
+        // Cách đơn giản nhất là so sánh từng sticker với trạng thái giải mẫu
+        // (Màu của sticker đầu tiên của mỗi mặt sẽ là màu của cả mặt đó)
+        for (int faceStart = 0; faceStart < 54; faceStart += 9) {
+            char firstStickerColor = cube.get(faceStart + 4); // Màu của ô tâm
+            for (int i = 0; i < 9; i++) {
+                if (cube.get(faceStart + i) != firstStickerColor) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     // ======== Công cụ hoán đổi cạnh ========
     private void rotateEdgeClockwise(int[] a, int[] b, int[] c, int[] d) {
         char[] temp = new char[a.length];
