@@ -1,6 +1,6 @@
 package com.noface;
 
-import com.noface.Rubik;
+import com.noface.heuristic.PatternDatabaseHeuristic;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,12 +18,14 @@ import javafx.scene.control.ScrollPane; // THÊM import này
 import javafx.scene.control.Alert; // THÊM import này
 import javafx.application.Platform; // THÊM import này
 
+import java.sql.SQLException;
 import java.util.List; // THÊM import này
 import java.util.concurrent.CompletableFuture; // THÊM import này
 
 public class RubikApp extends Application {
     private static final int CUBIE_SIZE = 40;
     private static final int GAP = 2;
+    private CompletableFuture task;
     private static final Color[] FACE_COLORS = {
             Color.WHITE, // U - Up (White)
             Color.ORANGE, // L - Left (Orange)
@@ -46,6 +48,19 @@ public class RubikApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        try{
+
+            PatternDatabaseHeuristic.getInstance();
+            int cnt = 0;
+            int[] depths = PatternDatabaseHeuristic.getInstance().getDepths();
+            for(int i = 0; i < depths.length; i++){
+                if(depths[i] > 3) cnt++;
+            }
+            System.out.println(cnt);
+        }catch (Exception e){
+
+        }
+
         // Main layout
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(10));
@@ -220,11 +235,34 @@ public class RubikApp extends Application {
         solveButton.setOnAction(e -> solveCubeWithIDA());
         solveButton.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
 
+        Button cancelButton = new Button("Cancel button");
+        cancelButton.setOnAction(e -> {
+            if(task != null) task.cancel(true);
+        });
+        cancelButton.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
+
+        Button showLogBtn = new Button("Show Log");
+        showLogBtn.setOnAction(e -> {
+            int[] depths;
+            try {
+                depths = PatternDatabaseHeuristic.getInstance().getDepths();
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
+            }
+            for(int i = 0; i < depths.length; i++) {
+                System.out.println(depths[i] + " ");
+            }
+        });
+
         controlPanel.getChildren().addAll(
                 upControls, downControls, leftControls,
                 rightControls, frontControls, backControls,
-                shuffleBtn, resetBtn, solveButton // THÊM solveButton vào đây
+                shuffleBtn, resetBtn, solveButton, cancelButton, showLogBtn
         );
+
+
+
+
 
         return controlPanel;
     }
@@ -238,7 +276,7 @@ public class RubikApp extends Application {
                                                              // trên UI
 
         // Chạy tác vụ giải trong một luồng riêng để không làm đóng băng UI
-        CompletableFuture.supplyAsync(() -> {
+        task = CompletableFuture.supplyAsync(() -> {
             IDASolver solver = new IDASolver();
             return solver.solve(currentScrambledRubik);
         }).thenAcceptAsync(solutionSteps -> Platform.runLater(() -> { // Cập nhật UI trên luồng JavaFX
@@ -409,7 +447,7 @@ public class RubikApp extends Application {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
                 int index = startIndex + row * 3 + col;
-                char colorChar = rubik.getCube().get(index);
+                char colorChar = rubik.getState().get(index);
                 Color color = getColorForFace(faceIndex, index);
 
                 Rectangle cubie = new Rectangle(CUBIE_SIZE, CUBIE_SIZE, color);
@@ -422,7 +460,7 @@ public class RubikApp extends Application {
     }
 
     private Color getColorForFace(int face, int index) {
-        char colorChar = rubik.getCube().get(index);
+        char colorChar = rubik.getState().get(index);
         switch (colorChar) {
             case 'U':
                 return FACE_COLORS[0]; // White

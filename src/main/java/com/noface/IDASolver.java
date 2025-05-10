@@ -1,92 +1,84 @@
 package com.noface; // Đảm bảo cùng package với Rubik.java
 
-import java.util.*;
+import com.noface.heuristic.ManhattanHeuristic;
+import com.noface.heuristic.PatternDatabaseHeuristic;
+import javafx.util.Pair;
 
+import java.sql.SQLException;
+import java.util.*;
+import java.util.function.Function;
 public class IDASolver {
 
     private static final String[] MOVES = {
             "U", "U'", "D", "D'", "L", "L'", "R", "R'", "F", "F'", "B", "B'"
     };
+    private Function<Rubik, Integer> heuristicFunction;
 
     private Rubik solvedStateRubik;
 
-    // Enum và Map để tính heuristic (giống ManhattanHeuristicCalculator trước đó)
-    private enum Face {
-        UP, DOWN, LEFT, RIGHT, FRONT, BACK
-    }
 
-    private static final Map<Character, Face> TARGET_FACE_FOR_COLOR = new HashMap<>();
-    private static final Face[] FACE_OF_STICKER_INDEX = new Face[54];
-    private static final int[] CENTER_STICKER_INDICES = { 4, 13, 22, 31, 40, 49 };
 
-    static {
-        TARGET_FACE_FOR_COLOR.put('U', Face.UP); // White
-        TARGET_FACE_FOR_COLOR.put('L', Face.LEFT); // Orange
-        TARGET_FACE_FOR_COLOR.put('F', Face.FRONT); // Green
-        TARGET_FACE_FOR_COLOR.put('R', Face.RIGHT); // Red
-        TARGET_FACE_FOR_COLOR.put('B', Face.BACK); // Blue
-        TARGET_FACE_FOR_COLOR.put('D', Face.DOWN); // Yellow
-
-        for (int i = 0; i <= 8; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.UP;
-        for (int i = 9; i <= 17; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.LEFT;
-        for (int i = 18; i <= 26; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.FRONT;
-        for (int i = 27; i <= 35; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.RIGHT;
-        for (int i = 36; i <= 44; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.BACK;
-        for (int i = 45; i <= 53; i++)
-            FACE_OF_STICKER_INDEX[i] = Face.DOWN;
-    }
 
     public IDASolver() {
         this.solvedStateRubik = new Rubik();
-    }
-
-    /**
-     * Heuristic Khoảng cách Manhattan của Sticker đến Mặt Đúng.
-     * Tính tổng "khoảng cách mặt" cho mỗi sticker không phải tâm.
-     * Khoảng cách mặt: 0 nếu sticker ở đúng mặt, 1 nếu ở mặt kề, 2 nếu ở mặt đối
-     * diện.
-     * Chia tổng cho một hằng số (ví dụ: 8 hoặc 12) để đảm bảo tính chấp nhận được.
-     */
-    private int manhattanDistanceHeuristic(Rubik currentRubik) {
-        int totalDistanceSum = 0;
-        List<Character> currentState = currentRubik.getCubeState();
-
-        for (int i = 0; i < 54; i++) {
-            boolean isCenter = false;
-            for (int centerIdx : CENTER_STICKER_INDICES) {
-                if (i == centerIdx) {
-                    isCenter = true;
-                    break;
-                }
-            }
-            if (isCenter)
-                continue;
-
-            char actualColorChar = currentState.get(i);
-            Face targetFaceForColor = TARGET_FACE_FOR_COLOR.get(actualColorChar);
-            Face currentFaceOfIndex = FACE_OF_STICKER_INDEX[i];
-
-            totalDistanceSum += getFaceDistance(currentFaceOfIndex, targetFaceForColor);
+        try {
+            heuristicFunction = PatternDatabaseHeuristic.getInstance()::getCornerHeuristicValue;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-
-        return (int) Math.ceil(totalDistanceSum / 8.0);
+    }
+    public IDASolver(Function<Rubik, Integer> heuristicFunction) {
+        this.solvedStateRubik = new Rubik();
+        this.heuristicFunction = heuristicFunction;
     }
 
-    private static int getFaceDistance(Face face1, Face face2) {
-        if (face1 == face2)
-            return 0;
-        if ((face1 == Face.UP && face2 == Face.DOWN) || (face1 == Face.DOWN && face2 == Face.UP) ||
-                (face1 == Face.LEFT && face2 == Face.RIGHT) || (face1 == Face.RIGHT && face2 == Face.LEFT) ||
-                (face1 == Face.FRONT && face2 == Face.BACK) || (face1 == Face.BACK && face2 == Face.FRONT)) {
-            return 2;
-        }
-        return 1;
-    }
+
+//    public List<String> solve(Rubik initialRubik) {
+//        int bound = heuristicFunction.apply(initialRubik);
+//        System.out.println(bound);
+//        List<String> path = new ArrayList<>();
+//        SearchState resultSearchState = null;
+//        long cnt = 0;
+//        while (true) {
+//            System.out.println("Bound: " + bound);
+//            Queue<SearchState> queue = new LinkedList<>();
+//            int minToAdd = Integer.MAX_VALUE;
+//            SearchState initState = new SearchState(initialRubik, path, 0);
+//            queue.add(initState);
+//
+//            while(!queue.isEmpty()) {
+//                SearchState currentState = queue.poll();
+//                if(currentState.getRubik().isSolved()){
+//                    resultSearchState = currentState;
+//                    break;
+//                }
+//                for(String move : MOVES){
+//                    Rubik nextRubikState = new Rubik(currentState.getRubik());
+//                    nextRubikState.applyMove(move);
+//                    if(nextRubikState.equals(currentState)){
+//                        throw new RuntimeException("Rubik khoong thay doi");
+//                    }
+//                    int gCost = currentState.getgCost() + 1;
+//                    int fCost = gCost + heuristicFunction.apply(nextRubikState);
+//                    if(fCost < bound){
+//                        path.add(move);
+//                        queue.add(new SearchState(nextRubikState, path, gCost));
+//                        cnt++;
+//                        if(cnt % 100000 == 0){
+//                            System.out.println(cnt);
+//                        }
+//                        path.remove(path.size() - 1);
+//                    }
+//                }
+//            }
+//            if(resultSearchState != null){
+//                break;
+//            }
+//            bound += 2;
+//        }
+//        System.out.println(cnt);
+//        return resultSearchState.getPath();
+//    }
 
     /**
      * Hàm tìm kiếm chính của IDA*.
@@ -95,8 +87,9 @@ public class IDASolver {
      * @return Danh sách các bước giải, hoặc null nếu không tìm thấy trong giới hạn.
      */
     public List<String> solve(Rubik initialRubik) {
-        int bound = manhattanDistanceHeuristic(initialRubik);
+        int bound = heuristicFunction.apply(initialRubik);
         List<String> path = new ArrayList<>();
+
 
         while (true) {
             System.out.println("IDA*: Trying bound = " + bound);
@@ -116,6 +109,13 @@ public class IDASolver {
             }
         }
     }
+    /**
+     * Heuristic Khoảng cách Manhattan của Sticker đến Mặt Đúng.
+     * Tính tổng "khoảng cách mặt" cho mỗi sticker không phải tâm.
+     * Khoảng cách mặt: 0 nếu sticker ở đúng mặt, 1 nếu ở mặt kề, 2 nếu ở mặt đối
+     * diện.
+     * Chia tổng cho một hằng số (ví dụ: 8 hoặc 12) để đảm bảo tính chấp nhận được.
+     */
 
     /**
      * Hàm tìm kiếm đệ quy (Depth-First Search có giới hạn chi phí).
@@ -130,9 +130,8 @@ public class IDASolver {
      * @return SearchResult chứa thông tin tìm kiếm.
      */
     private SearchResult search(Rubik currentRubik, int gCost, int bound, List<String> currentPath, String lastMove) {
-        int hCost = manhattanDistanceHeuristic(currentRubik);
+        int hCost = heuristicFunction.apply(currentRubik);
         int fCost = gCost + hCost;
-
         if (fCost > bound) {
             return new SearchResult(false, null, fCost); // Vượt ngưỡng, trả về fCost
         }
@@ -204,6 +203,44 @@ public class IDASolver {
 
         public int getMinExceededCost() {
             return minExceededCost;
+        }
+    }
+    class SearchState{
+        private List<String> path;
+        private int gCost;
+        private Rubik rubik;
+
+        public SearchState(Rubik rubik, List<String> path, int gCost) {
+            this.rubik = new Rubik(rubik);
+            this.path = new ArrayList<>(path);
+            this.gCost = gCost;
+        }
+
+        public List<String> getPath() {
+            return path;
+        }
+
+        public void setPath(List<String> path) {
+            this.path = path;
+        }
+
+        public int getgCost() {
+            return gCost;
+        }
+
+        public void setgCost(int gCost) {
+            this.gCost = gCost;
+        }
+
+        public Rubik getRubik() {
+            return rubik;
+        }
+
+        public void setRubik(Rubik rubik) {
+            this.rubik = rubik;
+        }
+        public String toString(){
+            return gCost + " " + String.join(" ", path) ;
         }
     }
 }
