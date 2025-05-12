@@ -1,52 +1,46 @@
-package com.noface;
+package com.noface.rubik.rubikImpl;
 
+
+import com.noface.rubik.enums.RubikFace;
+import com.noface.rubik.utils.Utils;
 
 import java.util.*;
 
-//               ----------------
-//               | 0  | 1  | 2  |
-//               ----------------
-//               | 3  | 4  | 5  |
-//               ----------------
-//               | 6  | 7  | 8  |
-//               ----------------
-//-------------------------------------------------------------
-//| 9  | 10 | 11 | 18 | 19 | 20 | 27 | 28 | 29 | 36 | 37 | 38 |
-//-------------------------------------------------------------
-//| 12 | 13 | 14 | 21 | 22 | 23 | 30 | 31 | 32 | 39 | 40 | 41 |
-//-------------------------------------------------------------
-//| 15 | 16 | 17 | 24 | 25 | 26 | 33 | 34 | 35 | 42 | 43 | 44 |
-//-------------------------------------------------------------
-//               ----------------
-//               | 45 | 46 | 47 |
-//               ----------------
-//               | 48 | 49 | 50 |
-//               ----------------
-//               | 51 | 52 | 53 |
-//               ----------------
-public class Rubik {
-    List<Character> state = new ArrayList<>(54);
-
-    public Rubik() {
-        for (int i = 0; i < 9; i++) state.add('U');
-        for (int i = 0; i < 9; i++) state.add('L');
-        for (int i = 0; i < 9; i++) state.add('F');
-        for (int i = 0; i < 9; i++) state.add('R');
-        for (int i = 0; i < 9; i++) state.add('B');
-        for (int i = 0; i < 9; i++) state.add('D');
-    }
-
-    public Rubik(List<Character> state) {
-        this.state = new ArrayList<>(state);
+//             -----------
+//             |  0 |  1 |
+//             -----------
+//             |  2 |  3 |
+//             -----------
+//-------------------------------------------
+//|  4 |  5 |   8 |  9 |   12 | 13 |   16 | 17 |
+//|  6 |  7 |  10 | 11 |   14 | 15 |   18 | 19 |
+//-------------------------------------------
+//             -----------
+//             | 20 | 21 |
+//             -----------
+//             | 22 | 23 |
+//             -----------
+public class Rubik3 extends Rubik {
+    public Rubik3() {
+        super(3);
 
     }
+    public Rubik3(char[] state){
+        super(state);
+    }
 
-    public Rubik(Rubik other) {
-        this.state = new ArrayList<>();
-        for (int i = 0; i < 54; i++) {
-            this.state.add(Character.valueOf(other.state.get(i)));
+
+    public Rubik3 clone(){
+        char[] newState = new char[54];
+        for(int i = 0; i < 54; i++){
+            newState[i] = state[i];
         }
+        return new Rubik3(newState);
     }
+
+
+
+
 
     public List<Runnable> getBasicMoves() {
         return Arrays.asList(
@@ -65,23 +59,8 @@ public class Rubik {
         );
     }
 
-    private void rotateFaceClockwise(int startIndex) {
-        List<Integer> pos = Arrays.asList(0, 1, 2, 5, 8, 7, 6, 3);
-        List<Character> temp = new ArrayList<>();
-        for (int i : pos) temp.add(state.get(startIndex + i));
-        Collections.rotate(temp, 2);
-        for (int i = 0; i < pos.size(); i++) state.set(startIndex + pos.get(i), temp.get(i));
-    }
 
-    private void rotateFaceCounterClockwise(int startIndex) {
-        List<Integer> pos = Arrays.asList(0, 1, 2, 5, 8, 7, 6, 3);
-        List<Character> temp = new ArrayList<>();
-        for (int i : pos) temp.add(state.get(startIndex + i));
-        Collections.rotate(temp, -2);
-        for (int i = 0; i < pos.size(); i++) state.set(startIndex + pos.get(i), temp.get(i));
-    }
 
-    // ======= Các thao tác ========
 
     // Chỉ số theo mặt trên và các chỉ số liên quan
 //        38, 37, 36,
@@ -202,61 +181,16 @@ public class Rubik {
         rotateEdgeCounterClockwise(u, r, d, l);
     }
 
-    // THÊM: Phương thức áp dụng lượt xoay dựa trên tên
-    public void applyMove(String moveName) {
-        switch (moveName) {
-            case "U":
-                moveU();
-                break;
-            case "U'":
-                moveUPrime();
-                break;
-            case "D":
-                moveD();
-                break;
-            case "D'":
-                moveDPrime();
-                break;
-            case "L":
-                moveL();
-                break;
-            case "L'":
-                moveLPrime();
-                break;
-            case "R":
-                moveR();
-                break;
-            case "R'":
-                moveRPrime();
-                break;
-            case "F":
-                moveF();
-                break;
-            case "F'":
-                moveFPrime();
-                break;
-            case "B":
-                moveB();
-                break;
-            case "B'":
-                moveBPrime();
-                break;
-            // Nếu bạn thêm U2, F2... vào MOVES trong IDASolver, cần thêm case ở đây
-            // case "U2": moveU(); moveU(); break; // Ví dụ
-            default:
-                System.err.println("Unknown move: " + moveName);
-        }
-    }
 
-    // THÊM: Kiểm tra trạng thái đã giải
+
     public boolean isSolved() {
-        // Giả định trạng thái giải là trạng thái được tạo bởi constructor Rubik()
+        // Giả định trạng thái giải là trạng thái được tạo bởi constructor Rubik3()
         // Cách đơn giản nhất là so sánh từng sticker với trạng thái giải mẫu
         // (Màu của sticker đầu tiên của mỗi mặt sẽ là màu của cả mặt đó)
         for (int faceStart = 0; faceStart < 54; faceStart += 9) {
-            char firstStickerColor = state.get(faceStart + 4); // Màu của ô tâm
+            char firstStickerColor = state[faceStart + 4];
             for (int i = 0; i < 9; i++) {
-                if (state.get(faceStart + i) != firstStickerColor) {
+                if (state[faceStart + i] != firstStickerColor) {
                     return false;
                 }
             }
@@ -264,43 +198,9 @@ public class Rubik {
         return true;
     }
 
-    // ======== Công cụ hoán đổi cạnh ========
-    private void rotateEdgeClockwise(int[] a, int[] b, int[] c, int[] d) {
-        char[] temp = new char[a.length];
-        for (int i = 0; i < a.length; i++) temp[i] = state.get(a[i]);
-        for (int i = 0; i < a.length; i++) state.set(a[i], state.get(d[i]));
-        for (int i = 0; i < a.length; i++) state.set(d[i], state.get(c[i]));
-        for (int i = 0; i < a.length; i++) state.set(c[i], state.get(b[i]));
-        for (int i = 0; i < a.length; i++) state.set(b[i], temp[i]);
-    }
-
-    private void rotateEdgeCounterClockwise(int[] a, int[] b, int[] c, int[] d) {
-        rotateEdgeClockwise(d, c, b, a);
-    }
-
-    // THÊM: Override equals và hashCode (quan trọng cho việc so sánh trạng thái nếu
-    // cần)
     @Override
-    public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        Rubik rubik = (Rubik) o;
-        return Objects.equals(state, rubik.state);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(state);
-    }
-
-    // ======================
-    public void print() {
-        for (int i = 0; i < 54; i++) {
-            System.out.print(state.get(i) + " ");
-            if ((i + 1) % 9 == 0) System.out.println();
-        }
+    public int getSize() {
+        return 3;
     }
 
     public void importCornerState(int cornerState) {
@@ -323,7 +223,7 @@ public class Rubik {
 
             int[] cornerIndex = CornerCube.values()[i].getIndex();
             for (int j = 0; j < 3; j++) {
-                state.set(cornerIndex[j], cornerStateString.charAt(j));
+                state[cornerIndex[j]] = cornerStateString.charAt(j);
             }
         }
     }
@@ -338,7 +238,7 @@ public class Rubik {
             int[] cornerIndex = CornerCube.values()[i].getIndex();
             String cornerStateString = "";
             for (int j = 0; j < 3; j++) {
-                cornerStateString += state.get(cornerIndex[j]);
+                cornerStateString += state[cornerIndex[j]];
             }
             for (CornerCube cornerCube : CornerCube.values()) {
                 String baseCornerStateString = cornerCube.name();
@@ -363,6 +263,32 @@ public class Rubik {
         return encodeCornerState;
     }
 
+
+
+
+
+    @Override
+    public List<String> getSolution() {
+        return List.of();
+    }
+
+
+    public char[] getState() {
+        return state;
+    }
+
+    private void rotateEdgeClockwise(int[] a, int[] b, int[] c, int[] d) {
+        char[] temp = new char[a.length];
+        for (int i = 0; i < a.length; i++) temp[i] = state[a[i]];
+        for (int i = 0; i < a.length; i++) state[a[i]] = state[d[i]];
+        for (int i = 0; i < a.length; i++) state[d[i]] = state[c[i]];
+        for (int i = 0; i < a.length; i++) state[c[i]] = state[b[i]];
+        for (int i = 0; i < a.length; i++) state[b[i]] = temp[i];
+    }
+
+    private void rotateEdgeCounterClockwise(int[] a, int[] b, int[] c, int[] d) {
+        rotateEdgeClockwise(d, c, b, a);
+    }
     private static String rotateLeft(String s, int k) {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < s.length(); i++) {
@@ -378,37 +304,45 @@ public class Rubik {
         }
         return result.toString();
     }
-
-    public void shuffle(int n) {
-        for (int i = 0; i < n; i++) {
-            int randomIndex = (int) (Math.random() * 12);
-            this.getBasicMoves().get(randomIndex).run();
+    private void rotateFaceClockwise(int startIndex) {
+        char[] pos = new char[]{0, 1, 2, 5, 8, 7, 6, 3};
+        char[] temp = new char[pos.length];
+        for(int i = 0; i < pos.length; i++) temp[i] = state[startIndex + pos[i]];
+        for(int i = 0; i < pos.length; i++){
+            state[startIndex + pos[i]] = temp[(i - 2 + pos.length) % pos.length];
         }
     }
 
+    private void rotateFaceCounterClockwise(int startIndex) {
+        char[] pos = new char[]{0, 1, 2, 5, 8, 7, 6, 3};
+        char[] temp = new char[pos.length];
+        for(int i = 0; i < pos.length; i++) temp[i] = state[startIndex + pos[i]];
+        for(int i = 0; i < pos.length; i++){
+            state[startIndex + pos[i]] = temp[(i + 2 + pos.length) % pos.length];
+        }
+    }
+}
 
-    public List<Character> getState() {
-        return state;
+enum CornerCube {
+    UBL(new char[]{'U', 'B', 'L'}, new int[]{0, 38, 9}),
+    ULF(new char[]{'U', 'L', 'F'}, new int[]{6, 11, 18}),
+    UFR(new char[] {'U', 'F', 'R'},new int[]{8, 20, 27}),
+    URB(new char[] {'U', 'R', 'B'}, new int[]{2, 29, 36}),
+
+    DRF(new char[] {'D', 'R', 'F'}, new int[]{47, 33, 26}),
+    DFL(new char[] {'D', 'F', 'L'}, new int[]{45, 24, 17}),
+    DLB(new char[] {'D', 'L', 'B'}, new int[]{51, 15, 44}),
+    DBR(new char[] {'D', 'B', 'R'},new int[]{53, 42, 35});
+
+
+    private final int[] index;
+    private final char[] chars;
+    CornerCube(char[] chars, int[] index ) {
+        this.index = index;
+        this.chars = chars;
     }
 
-    public void compareCorner(Rubik other) {
-        for (CornerCube cornerCube : CornerCube.values()) {
-            int[] cornerIndex = CornerCube.values()[cornerCube.ordinal()].getIndex();
-            String thisCorner = "";
-            for (int j = 0; j < 3; j++) {
-                thisCorner += state.get(cornerIndex[j]);
-            }
-            String otherCorner = "";
-            for (int j = 0; j < 3; j++) {
-                otherCorner += other.state.get(cornerIndex[j]);
-            }
-            if (!thisCorner.equals(otherCorner)) {
-                for (int k = 0; k < 3; k++) {
-                    System.out.print(cornerIndex[k] + " ");
-                }
-                System.out.println();
-                System.out.println(thisCorner + " != " + otherCorner);
-            }
-        }
+    public int[] getIndex() {
+        return index;
     }
 }

@@ -1,6 +1,9 @@
-package com.noface;
+package com.noface.rubik.generator;
 
-import com.noface.heuristic.PatternDatabaseHeuristic;
+import com.noface.rubik.utils.PatternDatabase;
+import com.noface.rubik.enums.RubikMove;
+import com.noface.rubik.heuristic.PatternDatabaseHeuristic;
+import com.noface.rubik.rubikImpl.Rubik3;
 import javafx.util.Pair;
 
 
@@ -16,24 +19,20 @@ public class CornerPatternGenerator {
 
 
     public static void main(String[] args) throws SQLException {
-        Rubik rubik = new Rubik();
-//        rubik.importCornerState(1813222996135840890l);
-//        System.out.println(rubik.extractCornerState());
+        Rubik3 rubik3 = new Rubik3();
+//        rubik3.importCornerState(1813222996135840890l);
+//        System.out.println(rubik3.extractCornerState());
 //        for(int i = 0; i < 6; i++){
 //            System.out.println(RubikFace.values()[i].ordinal());
 //        }
-//        CornerPatternGenerator cornerPatternGenerator = new CornerPatternGenerator();
+        CornerPatternGenerator cornerPatternGenerator = new CornerPatternGenerator();
 //        cornerPatternGenerator.generateCornerPatternDatabase();
-            PatternDatabaseHeuristic.getInstance();
-        int[] depths = PatternDatabaseHeuristic.getInstance().getDepths();
+//            PatternDatabaseHeuristic.getInstance();
 
-        for (long i = 0; i < depths.length; i++) {
-            System.out.println("Depth: " + i + " " + depths[(int) i] + " " );
-        }
-//        cornerPatternGenerator.testState();
+        cornerPatternGenerator.testState();
     }
     /**
-     * Tạo cơ sở dữ liệu cho trạng thái góc của Rubik
+     * Tạo cơ sở dữ liệu cho trạng thái góc của Rubik3
      */
     public void generateCornerPatternDatabase() {
         int cnt = 0;
@@ -46,8 +45,8 @@ public class CornerPatternGenerator {
         int[] visited = new int[90000000];
         Arrays.fill(visited, -1);
         Queue<Pair<Integer, Integer>> queue = new ArrayDeque<>();
-        Rubik startRubik = new Rubik();
-        Integer startState = startRubik.exportCornerState();
+        Rubik3 startRubik3 = new Rubik3();
+        Integer startState = startRubik3.exportCornerState();
         visited[startState] = 0;
 
         queue.add(new Pair<Integer, Integer>(startState, 0));
@@ -56,12 +55,12 @@ public class CornerPatternGenerator {
 //            System.out.println(currentCornerState);
             Integer depth = queue.peek().getValue();
             queue.poll();
-            for(int i = 0; i < 12; i++){
+            for(RubikMove move : RubikMove.values()){
 
-                Rubik rubik = new Rubik();
-                rubik.importCornerState(currentCornerState);
-                rubik.getBasicMoves().get(i).run();
-                Integer nextKey = rubik.exportCornerState();
+                Rubik3 rubik3 = new Rubik3();
+                rubik3.importCornerState(currentCornerState);
+                rubik3.applyMove(move);
+                Integer nextKey = rubik3.exportCornerState();
                 if(visited[nextKey] == -1){
                     visited[nextKey] = depth + 1;
                     cnt++;
@@ -91,14 +90,14 @@ public class CornerPatternGenerator {
     }
 
     public void testState(){
-        Rubik rubik = new Rubik();
-        rubik.shuffle(20);
-        int cornerState = rubik.exportCornerState();
-        Rubik another = new Rubik();
+        Rubik3 rubik3 = new Rubik3();
+        rubik3.shuffle(5);
+        int cornerState = rubik3.exportCornerState();
+        Rubik3 another = new Rubik3();
         another.importCornerState(cornerState);
         System.out.println(cornerState);
         System.out.println(another.exportCornerState());
-        rubik.compareCorner(another);
 
     }
+
 }

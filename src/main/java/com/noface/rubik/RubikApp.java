@@ -1,6 +1,12 @@
-package com.noface;
+package com.noface.rubik;
 
-import com.noface.heuristic.PatternDatabaseHeuristic;
+import com.noface.rubik.enums.RubikFace;
+import com.noface.rubik.enums.RubikMove;
+import com.noface.rubik.rubikImpl.Rubik;
+import com.noface.rubik.rubikImpl.Rubik2;
+import com.noface.rubik.rubikImpl.Rubik3;
+import com.noface.rubik.solver.BFSSolver;
+import com.noface.rubik.solver.IDASolver;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,24 +24,17 @@ import javafx.scene.control.ScrollPane; // THÊM import này
 import javafx.scene.control.Alert; // THÊM import này
 import javafx.application.Platform; // THÊM import này
 
-import java.sql.SQLException;
 import java.util.List; // THÊM import này
 import java.util.concurrent.CompletableFuture; // THÊM import này
+
 
 public class RubikApp extends Application {
     private static final int CUBIE_SIZE = 40;
     private static final int GAP = 2;
     private CompletableFuture task;
-    private static final Color[] FACE_COLORS = {
-            Color.WHITE, // U - Up (White)
-            Color.ORANGE, // L - Left (Orange)
-            Color.GREEN, // F - Front (Green)
-            Color.RED, // R - Right (Red)
-            Color.BLUE, // B - Back (Blue)
-            Color.YELLOW // D - Down (Yellow)
-    };
-
-    private Rubik rubik = new Rubik();
+//    private IDASolver solver = new IDASolver();
+    BFSSolver solver = new BFSSolver();
+    private Rubik rubik;
     private GridPane upFace = new GridPane();
     private GridPane leftFace = new GridPane();
     private GridPane frontFace = new GridPane();
@@ -44,18 +43,19 @@ public class RubikApp extends Application {
     private GridPane downFace = new GridPane();
 
     private TextArea solutionArea; // THÊM: Khu vực hiển thị các bước giải
-    private Button solveButton; // THÊM: Tham chiếu đến nút Solve
-
+    private Button solveBtn; // THÊM: Tham chiếu đến nút Solve
+    private Button stopSolveBtn;
+    private Button shuffleBtn;
+    private Button resetBtn;
     @Override
     public void start(Stage primaryStage) {
         try{
 
-            PatternDatabaseHeuristic.getInstance();
             int cnt = 0;
-            int[] depths = PatternDatabaseHeuristic.getInstance().getDepths();
-            for(int i = 0; i < depths.length; i++){
-                if(depths[i] > 3) cnt++;
-            }
+//            int[] depths = PatternDatabaseHeuristic.getInstance().getDepths();
+//            for(int i = 0; i < depths.length; i++){
+//                if(depths[i] > 3) cnt++;
+//            }
             System.out.println(cnt);
         }catch (Exception e){
 
@@ -70,7 +70,7 @@ public class RubikApp extends Application {
         root.setCenter(cubeNet);
 
         // Create control panel
-        HBox controlPanel = createControlPanel();
+        HBox controlPanel = createRubikMoveControl();
         root.setBottom(controlPanel);
 
         // Create notation legend
@@ -90,10 +90,11 @@ public class RubikApp extends Application {
         root.setCenter(centerContent);
 
         // Initialize the cube display
+        rubik = new Rubik2();
         updateCubeVisual();
 
-        Scene scene = new Scene(root, 900, 600);
-        primaryStage.setTitle("2D Rubik's Cube Simulation");
+        Scene scene = new Scene(root, 900, 900);
+        primaryStage.setTitle("2D Rubik3's Cube Simulation");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -145,7 +146,7 @@ public class RubikApp extends Application {
         return panel;
     }
 
-    private HBox createControlPanel() {
+    private HBox createRubikMoveControl() {
         HBox controlPanel = new HBox(10);
         controlPanel.setPadding(new Insets(10));
         controlPanel.setAlignment(Pos.CENTER);
@@ -217,47 +218,11 @@ public class RubikApp extends Application {
                     updateCubeVisual();
                 });
 
-        // Shuffle button
-        Button shuffleBtn = new Button("Shuffle");
-        shuffleBtn.setOnAction(e -> shuffleCube());
-        shuffleBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 100;");
 
-        // Reset button
-        Button resetBtn = new Button("Reset");
-        resetBtn.setOnAction(e -> {
-            rubik = new Rubik();
-            updateCubeVisual();
-        });
-        resetBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 100;");
-
-        // THÊM: Nút Solve (IDA*)
-        solveButton = new Button("Solve (IDA*)");
-        solveButton.setOnAction(e -> solveCubeWithIDA());
-        solveButton.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
-
-        Button cancelButton = new Button("Cancel button");
-        cancelButton.setOnAction(e -> {
-            if(task != null) task.cancel(true);
-        });
-        cancelButton.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
-
-        Button showLogBtn = new Button("Show Log");
-        showLogBtn.setOnAction(e -> {
-            int[] depths;
-            try {
-                depths = PatternDatabaseHeuristic.getInstance().getDepths();
-            } catch (SQLException ex) {
-                throw new RuntimeException(ex);
-            }
-            for(int i = 0; i < depths.length; i++) {
-                System.out.println(depths[i] + " ");
-            }
-        });
 
         controlPanel.getChildren().addAll(
                 upControls, downControls, leftControls,
-                rightControls, frontControls, backControls,
-                shuffleBtn, resetBtn, solveButton, cancelButton, showLogBtn
+                rightControls, frontControls, backControls
         );
 
 
@@ -267,50 +232,7 @@ public class RubikApp extends Application {
         return controlPanel;
     }
 
-    private void solveCubeWithIDA() {
-        solutionArea.setText(
-                "Solving with IDA*... Please wait.\nThis might take some time depending on the scramble depth and heuristic strength.");
-        solveButton.setDisable(true); // Vô hiệu hóa nút trong khi giải
-
-        Rubik currentScrambledRubik = new Rubik(this.rubik); // Tạo bản sao để giải, không ảnh hưởng đến rubik hiện tại
-                                                             // trên UI
-
-        // Chạy tác vụ giải trong một luồng riêng để không làm đóng băng UI
-        task = CompletableFuture.supplyAsync(() -> {
-            IDASolver solver = new IDASolver();
-            return solver.solve(currentScrambledRubik);
-        }).thenAcceptAsync(solutionSteps -> Platform.runLater(() -> { // Cập nhật UI trên luồng JavaFX
-            if (solutionSteps != null && !solutionSteps.isEmpty()) {
-                solutionArea.setText(
-                        "Solution found (" + solutionSteps.size() + " moves):\n" + String.join(" ", solutionSteps));
-                // Tùy chọn: Tự động áp dụng các bước giải lên Rubik trên UI
-                // applySolutionToGUICube(solutionSteps);
-            } else {
-                solutionArea.setText("No solution found within limits or an error occurred.");
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("IDA* Solver");
-                alert.setHeaderText(null);
-                alert.setContentText(
-                        "No solution found within the algorithm's limits, or the cube is already solved/heuristic issue.");
-                alert.showAndWait();
-            }
-            solveButton.setDisable(false); // Kích hoạt lại nút
-        })).exceptionally(ex -> { // Xử lý lỗi nếu có
-            Platform.runLater(() -> {
-                solutionArea.setText("Error during solving: " + ex.getMessage());
-                ex.printStackTrace();
-                solveButton.setDisable(false);
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("IDA* Solver Error");
-                alert.setHeaderText("An error occurred while trying to solve the cube.");
-                alert.setContentText(ex.getMessage());
-                alert.showAndWait();
-            });
-            return null;
-        });
-    }
-
-    // THÊM (Tùy chọn): Phương thức để áp dụng các bước giải lên Rubik trên UI
+    // THÊM (Tùy chọn): Phương thức để áp dụng các bước giải lên Rubik3 trên UI
     // Bạn có thể tạo một nút riêng để "Thực hiện các bước giải"
     private void applySolutionToGUICube(List<String> solutionSteps) {
         if (solutionSteps == null || solutionSteps.isEmpty())
@@ -318,11 +240,11 @@ public class RubikApp extends Application {
 
         // Có thể thực hiện từ từ với một chút delay để người dùng thấy
         Thread applyThread = new Thread(() -> {
-            for (String move : solutionSteps) {
+            for (RubikMove move : RubikMove.values()) {
                 Platform.runLater(() -> {
                     this.rubik.applyMove(move);
                     updateCubeVisual();
-                    solutionArea.appendText("\nApplied: " + move);
+                    solutionArea.appendText("\nApplied: " + move.name());
                 });
                 try {
                     Thread.sleep(500); // Delay 0.5 giây giữa các bước
@@ -361,69 +283,96 @@ public class RubikApp extends Application {
         legend.setPadding(new Insets(20));
         legend.setStyle("-fx-background-color: #f8f8f8; -fx-border-color: #ccc; -fx-border-width: 1;");
 
-        Text title = new Text("Rubik's Cube Notation");
+        Text title = new Text("Control panel");
         title.setFont(Font.font(16));
 
-        Text uNotation = new Text("U - Up face (White)");
-        Text dNotation = new Text("D - Down face (Yellow)");
-        Text lNotation = new Text("L - Left face (Orange)");
-        Text rNotation = new Text("R - Right face (Red)");
-        Text fNotation = new Text("F - Front face (Green)");
-        Text bNotation = new Text("B - Back face (Blue)");
+        // Shuffle button
+        shuffleBtn = new Button("Shuffle");
+        shuffleBtn.setOnAction(e -> {
+            rubik.shuffle(10000);
+            updateCubeVisual();
+        });
+        shuffleBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 100;");
 
-        Text primeNotation = new Text("' - Counter-clockwise\n(e.g., U' = Up face CCW)");
-        primeNotation.setWrappingWidth(150);
+        // Reset button
+        resetBtn = new Button("Reset");
+        resetBtn.setOnAction(e -> {
+            rubik.reset();
+            updateCubeVisual();
+        });
+        resetBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 100;");
 
-        legend.getChildren().addAll(title, uNotation, dNotation, lNotation,
-                rNotation, fNotation, bNotation, primeNotation);
+        // THÊM: Nút Solve (IDA*)
+        solveBtn = new Button("Solve (IDA*)");
+        solveBtn.setOnAction(e -> {
+            stopSolveBtn.setDisable(false);
+            shuffleBtn.setDisable(true);
+            resetBtn.setDisable(true);
+            solveBtn.setDisable(true);
+            solutionArea.setText(
+                    "Solving with IDA*... Please wait.\nThis might take some time depending on the scramble depth and heuristic strength.");
+            task = CompletableFuture.supplyAsync(() -> {
+                long start = System.nanoTime();
+
+                List<String> res = solver.solve(this.rubik);
+                long end = System.nanoTime();
+                long duration = end - start; // thời gian tính bằng nanosecond
+
+                System.out.println("Tổng thời gian: " + duration + " ns");
+                System.out.println("Tương đương khoảng: " + (duration / 1_000_000.0) + " ms");
+                return res;
+            }).thenAcceptAsync(solutionSteps -> Platform.runLater(() -> {
+
+                if (solutionSteps != null && !solutionSteps.isEmpty()) {
+
+                    solutionArea.setText(
+                            "Solution found (" + solutionSteps.size() + " moves):\n" + String.join(" ", solutionSteps));
+                    // Tùy chọn: Tự động áp dụng các bước giải lên Rubik3 trên UI
+                    // applySolutionToGUICube(solutionSteps);
+                } else {
+                    solutionArea.setText("No solution found within limits or an error occurred.");
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("IDA* Solver");
+                    alert.setHeaderText(null);
+                    alert.setContentText(
+                            "No solution found within the algorithm's limits, or the cube is already solved/heuristic issue.");
+                    alert.showAndWait();
+                }
+                stopSolveBtn.setDisable(true);
+                shuffleBtn.setDisable(false);
+                resetBtn.setDisable(false);
+                solveBtn.setDisable(false);
+            })).exceptionally(ex -> { // Xử lý lỗi nếu có
+                Platform.runLater(() -> {
+                    solutionArea.setText("Error during solving: " + ex.getMessage());
+                    ex.printStackTrace();
+                    solveBtn.setDisable(false);
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("IDA* Solver Error");
+                    alert.setHeaderText("An error occurred while trying to solve the cube.");
+                    alert.setContentText(ex.getMessage());
+                    alert.showAndWait();
+                });
+                return null;
+            });
+
+        });
+        solveBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
+
+        stopSolveBtn = new Button("Stop");
+        stopSolveBtn.setOnAction(e -> {
+            stopSolveBtn.setDisable(true);
+            shuffleBtn.setDisable(true);
+            resetBtn.setDisable(true);
+            solver.stopSolving();
+        });
+        stopSolveBtn.setDisable(true);
+        stopSolveBtn.setStyle("-fx-font-size: 14; -fx-pref-width: 120;");
+
+        legend.getChildren().addAll(title, shuffleBtn, resetBtn, solveBtn, stopSolveBtn);
         return legend;
     }
 
-    private void shuffleCube() {
-        int moves = 5;
-        for (int i = 0; i < moves; i++) {
-            int move = (int) (Math.random() * 12);
-            switch (move) {
-                case 0:
-                    rubik.moveU();
-                    break;
-                case 1:
-                    rubik.moveUPrime();
-                    break;
-                case 2:
-                    rubik.moveD();
-                    break;
-                case 3:
-                    rubik.moveDPrime();
-                    break;
-                case 4:
-                    rubik.moveL();
-                    break;
-                case 5:
-                    rubik.moveLPrime();
-                    break;
-                case 6:
-                    rubik.moveR();
-                    break;
-                case 7:
-                    rubik.moveRPrime();
-                    break;
-                case 8:
-                    rubik.moveF();
-                    break;
-                case 9:
-                    rubik.moveFPrime();
-                    break;
-                case 10:
-                    rubik.moveB();
-                    break;
-                case 11:
-                    rubik.moveBPrime();
-                    break;
-            }
-        }
-        updateCubeVisual();
-    }
 
     private void updateCubeVisual() {
         // Clear all faces
@@ -435,20 +384,22 @@ public class RubikApp extends Application {
         downFace.getChildren().clear();
 
         // Update each face
+        int size = rubik.getSize();
         updateFace(upFace, 0, 0); // Up face
-        updateFace(leftFace, 9, 1); // Left face
-        updateFace(frontFace, 18, 2); // Front face
-        updateFace(rightFace, 27, 3); // Right face
-        updateFace(backFace, 36, 4); // Back face
-        updateFace(downFace, 45, 5); // Down face
+        updateFace(leftFace, size * size, 1); // Left face
+        updateFace(frontFace, size * size * 2, 2); // Front face
+        updateFace(rightFace, size * size * 3, 3); // Right face
+        updateFace(backFace, size * size * 4, 4); // Back face
+        updateFace(downFace, size * size * 5, 5); // Down face
+
     }
 
     private void updateFace(GridPane faceGrid, int startIndex, int faceIndex) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 3; col++) {
-                int index = startIndex + row * 3 + col;
-                char colorChar = rubik.getState().get(index);
-                Color color = getColorForFace(faceIndex, index);
+        for (int row = 0; row < rubik.getSize(); row++) {
+            for (int col = 0; col < rubik.getSize(); col++) {
+                int index = startIndex + row * rubik.getSize() + col;
+                char colorChar = rubik.getState()[index];
+                Color color = RubikFace.valueOf(String.valueOf(colorChar)).getColor();
 
                 Rectangle cubie = new Rectangle(CUBIE_SIZE, CUBIE_SIZE, color);
                 cubie.setStroke(Color.BLACK);
@@ -459,25 +410,8 @@ public class RubikApp extends Application {
         }
     }
 
-    private Color getColorForFace(int face, int index) {
-        char colorChar = rubik.getState().get(index);
-        switch (colorChar) {
-            case 'U':
-                return FACE_COLORS[0]; // White
-            case 'L':
-                return FACE_COLORS[1]; // Orange
-            case 'F':
-                return FACE_COLORS[2]; // Green
-            case 'R':
-                return FACE_COLORS[3]; // Red
-            case 'B':
-                return FACE_COLORS[4]; // Blue
-            case 'D':
-                return FACE_COLORS[5]; // Yellow
-            default:
-                return Color.BLACK;
-        }
-    }
+
+
 
     public static void main(String[] args) {
         launch(args);

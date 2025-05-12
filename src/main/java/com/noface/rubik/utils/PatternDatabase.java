@@ -1,4 +1,4 @@
-package com.noface;
+package com.noface.rubik.utils;
 
 import java.sql.*;
 import java.util.BitSet;
@@ -211,4 +211,6 @@ public class PatternDatabase {
         }
         return count;
     }
+
+
 }

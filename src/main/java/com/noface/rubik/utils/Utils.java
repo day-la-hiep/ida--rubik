@@ -1,4 +1,4 @@
-package com.noface;
+package com.noface.rubik.utils;
 
 public class Utils {
     // Mã hóa hoán vị thành số (Lehmer code)
