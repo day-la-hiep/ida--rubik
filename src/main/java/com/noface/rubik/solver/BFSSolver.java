@@ -6,15 +6,33 @@ import com.noface.rubik.rubikImpl.Rubik;
 
 import java.util.*;
 
-public class BFSSolver {
-    public List<String> solve(Rubik rubik) {
+public class BFSSolver implements Solver {
+    private static BFSSolver solver;
+    private boolean isStopped = false;
+    public static BFSSolver getInstance() {
+        if(solver == null) {
+            solver = new BFSSolver();
+        }
+        return solver;
+    }
+    private BFSSolver() {
+
+    }
+    public List<RubikMove> solve(Rubik rubik) {
+        isStopped = false;
         Rubik initalRubik = rubik.clone();
+        if(rubik.isSolved()){
+            return Collections.emptyList();
+        }
         Set<Integer> visitedRubiks = new HashSet<>();
         Queue<SearchState> queue = new LinkedList<>();
         SearchState initState = new SearchState(rubik , new ArrayList<>(), 0);
         SearchState resultState = null;
         queue.add(initState);
         while (!queue.isEmpty()) {
+            if(isStopped == true){
+                return null;
+            }
             if(visitedRubiks.size() % 100000 == 0){
                 System.out.println(visitedRubiks.size());
             }
@@ -45,19 +63,14 @@ public class BFSSolver {
         }
         List<String> res;
         if(resultState != null) {
-            res = new ArrayList<>();
-            for(RubikMove move : resultState.path) {
-                res.add(move.getNotation());
-            }
-        }else{
-            res = null;
+            return resultState.path;
         }
 
-        return res;
+        return null;
     }
 
     public void stopSolving() {
-
+        isStopped = true;
     }
     public Integer extractRubikState(Rubik rubik) {
         int res = 0;

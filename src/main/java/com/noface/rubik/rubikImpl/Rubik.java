@@ -96,4 +96,8 @@ public abstract class Rubik {
     public int hashCode() {
         return Objects.hash(size, Arrays.hashCode(state), moves);
     }
+
+    public String getStateHash() {
+        return String.valueOf(state);
+    }
 }

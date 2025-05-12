@@ -2,7 +2,6 @@ package com.noface.rubik.heuristic;
 
 import com.noface.rubik.rubikImpl.Rubik;
 import com.noface.rubik.rubikImpl.Rubik2;
-import com.noface.rubik.rubikImpl.Rubik3;
 import com.noface.rubik.enums.RubikFace;
 
 import java.util.HashMap;
@@ -10,10 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 public class ManhattanHeuristic {
-    private static final Map<Character, RubikFace> TARGET_FACE_FOR_COLOR = new HashMap<>();
-    private static final RubikFace[] RUBIK_FACE_OF_STICKER_INDICES = new RubikFace[54];
-    private static final int[] CENTER_STICKER_INDICES = { 4, 13, 22, 31, 40, 49 };
-    private static final int MAX_MOVE_3X3 = 20;
     private static final int MAX_MOVE_2X2 = 20;
 
 
@@ -33,15 +28,8 @@ public class ManhattanHeuristic {
                 );
             }
         }
-        if(currentRubik instanceof Rubik2){
             return (int) Math.ceil(totalDistanceSum / 4.0);
 
-        }
-        if(currentRubik instanceof Rubik3){
-            return (int) Math.ceil(totalDistanceSum / 8.0);
-
-        }
-        return Integer.MAX_VALUE;
     }
 
 
