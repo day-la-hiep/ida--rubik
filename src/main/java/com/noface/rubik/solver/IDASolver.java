@@ -9,12 +9,14 @@ import java.util.function.Function;
 
 public class IDASolver implements Solver {
     private static IDASolver instance;
+
     public static IDASolver getInstance() {
         if (instance == null) {
             instance = new IDASolver();
         }
         return instance;
     }
+
     private boolean isStopped = false;
     private Function<Rubik, Integer> heuristicFunction;
 
@@ -35,7 +37,6 @@ public class IDASolver implements Solver {
         this.heuristicFunction = heuristicFunction;
     }
 
-
     public void stopSolving() {
         isStopped = true;
     }
@@ -54,7 +55,7 @@ public class IDASolver implements Solver {
             stack.push(initState);
             long cnt = 0;
             while (!stack.isEmpty()) {
-                if(isStopped) {
+                if (isStopped) {
                     isStopped = false;
                     return null;
                 }
@@ -66,30 +67,31 @@ public class IDASolver implements Solver {
                 }
                 for (RubikMove move : RubikMove.values()) {
                     List<RubikMove> currentPath = currentSearchState.path;
-                    if(currentPath.size() > 0){
-//                        if (move.name().charAt(0) == lastMove.name().charAt(0)
-//                                && move.name().length() == lastMove.name().length()) {
-//                            // Nếu currentPath có ít nhất 2 phần tử và 2 phần tử cuối cùng là cùng một mặt
-//                            if (currentPath.size() >= 2) {
-//                                RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
-//                                if (move.name().charAt(0) == secondLastMove.name().charAt(0)
-//                                        && move.name().length() == secondLastMove.name().length()) {
-//                                    continue; // Tránh U U U hoặc U' U' U'
-//                                }
-//                            }
-//                        }
+                    if (currentPath.size() > 0) {
+                        // Check for redundant moves
+                        RubikMove lastMove = currentPath.get(currentPath.size() - 1);
+                        if (move.name().charAt(0) == lastMove.name().charAt(0)
+                                && move.name().length() != lastMove.name().length()) {
+                            // Nếu currentPath có ít nhất 2 phần tử và 2 phần tử cuối cùng là cùng một mặt
+                            if (currentPath.size() >= 2) {
+                                RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
+                                if (move.name().charAt(0) == secondLastMove.name().charAt(0)
+                                        && move.name().length() == secondLastMove.name().length()) {
+                                    continue; // Tránh U U U hoặc U' U' U'
+                                }
+                            }
+                        }
 
                         // Tránh U rồi U'
-                        RubikMove lastMove = currentPath.getLast();
-                        if(move.name().equals(lastMove.name())
-                                && move.name().length() != move.name().length()){
+                        if (move.name().charAt(0) == lastMove.name().charAt(0)
+                                && move.name().length() != lastMove.name().length()) {
                             continue;
                         }
-                        // Tránh lặp lại 3 lần
 
-                        if(currentPath.size() > 1){
+                        // Tránh lặp lại 3 lần
+                        if (currentPath.size() > 1) {
                             RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
-                            if(move.equals(lastMove) && secondLastMove.equals(lastMove)){
+                            if (move.equals(lastMove) && secondLastMove.equals(lastMove)) {
                                 continue;
                             }
                         }
@@ -103,7 +105,7 @@ public class IDASolver implements Solver {
                     if (fCost <= bound) {
                         nextPath.add(move);
                         stack.push(new SearchState(nextRubikState, nextPath, gCost));
-                        nextPath.removeLast();
+                        nextPath.remove(nextPath.size() - 1);
                     }
                 }
             }
@@ -114,13 +116,11 @@ public class IDASolver implements Solver {
             }
             bound++;
         }
-        if(resultSearchState != null){
+        if (resultSearchState != null) {
             return resultSearchState.path;
         }
         return null;
     }
-
-
 
     class SearchState {
         public List<RubikMove> path;
@@ -132,8 +132,6 @@ public class IDASolver implements Solver {
             this.path = new ArrayList<>(path);
             this.gCost = gCost;
         }
-
-
 
     }
 }
