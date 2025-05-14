@@ -2,13 +2,9 @@ package com.noface.rubik;
 
 import com.noface.rubik.enums.RubikFace;
 import com.noface.rubik.enums.RubikMove;
-import com.noface.rubik.heuristic.ManhattanHeuristic;
-import com.noface.rubik.rubikImpl.Rubik;
+import com.noface.rubik.heuristic.*;
 import com.noface.rubik.rubikImpl.Rubik2;
-import com.noface.rubik.solver.BFSSolver;
-import com.noface.rubik.solver.DFSSolver;
-import com.noface.rubik.solver.IDASolver;
-import com.noface.rubik.solver.Solver;
+import com.noface.rubik.solver.*;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -25,33 +21,45 @@ import javafx.application.Platform; // THÊM import này
 
 import java.util.List; // THÊM import này
 import java.util.concurrent.CompletableFuture; // THÊM import này
+import java.util.function.Function;
 
 enum SolverType {
-    IDA_STAR("IDA*"),
-    BFS("BFS"),
-    DFS("DFS");
+    IDA_STAR("IDA*", IDASolver.getInstance()),
+    BFS("BFS", BFSSolver.getInstance()),
+    DFS("DFS", DFSSolver.getInstance()),;
 
     private final String name;
+    private Solver solver;
 
-    SolverType(String name) {
+    SolverType(String name, Solver solver) {
         this.name = name;
+        this.solver = solver;
     }
-
+    public Solver getSolver(){
+        return solver;
+    }
     public String getName() {
         return name;
     }
 }
 
 enum HeuristicType {
-    MANHATTAN("Manhattan"),
-    PATTERN_DATABASE("Pattern Database");
+    MANHATTAN("Manhattan", ManhattanHeuristic::getValue),
+    WRONG_ORIENTATION("Wrong orientation", WrongOrientationHeuristic::wrongOrientationOnly),
+    MISPLACED_CORNER("Misplaced Corner", MisplacedCornersHeuristic::misplacedCorners),
+    MAX_POSITION_ORIENTATION("Max position orientation", MaxPositionOrientationHeuristic::maxOfPositionAndOrientation),
+    HAMMING_DISTANCE("Hamming Distance", HammingDistanceHeuristic::hammingDistance),
+    ;
 
     private final String name;
-
-    HeuristicType(String name) {
+    private Function<Rubik2, Integer> heuristicFunction;
+    HeuristicType(String name, Function<Rubik2, Integer> heuristicFunction) {
         this.name = name;
+        this.heuristicFunction = heuristicFunction;
     }
-
+    public Function<Rubik2, Integer> getHeuristicFunction() {
+        return heuristicFunction;
+    }
     public String getName() {
         return name;
     }
@@ -62,7 +70,7 @@ public class RubikApp extends Application {
     private static final int GAP = 2;
     private CompletableFuture task;
     private Solver solver = IDASolver.getInstance();
-    private Rubik rubik;
+    private Rubik2 rubik;
     private GridPane upFace = new GridPane();
     private GridPane leftFace = new GridPane();
     private GridPane frontFace = new GridPane();
@@ -287,43 +295,25 @@ public class RubikApp extends Application {
         solutionArea.setText(
                 "Solving with " + solverComboBox.getValue() + "... Please wait.");
         task = CompletableFuture.supplyAsync(() -> {
-            long start = System.nanoTime();
-            Runtime runtime = Runtime.getRuntime();
-            System.gc();
-            try {
-                Thread.sleep(100);  // Dừng ngắn để GC kịp thực thi
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
 
-            // Đo lượng bộ nhớ ban đầu
-            long before = runtime.totalMemory() - runtime.freeMemory();
-            List<RubikMove> res = solver.solve(this.rubik);
-            long end = System.nanoTime();
-            long after = runtime.totalMemory() - runtime.freeMemory();
-            durationSolved = end - start; // thời gian tính bằng nanosecond
-            memoryUsed = after - before;
-            System.out.println("Memory used (in bytes): " + memoryUsed);
-            System.out.println("Memory used (in MB): " + memoryUsed / (1024 * 1024));
-            System.out.println("Tổng thời gian: " + durationSolved + " ns");
-            System.out.println("Tương đương khoảng: " + (durationSolved / 1_000_000.0) + " ms");
-            solutions = res;
-
+            SolutionResult res = solver.solve(this.rubik);
             return res;
-        }).thenAcceptAsync(solutionSteps -> Platform.runLater(() -> {
+        }).thenAcceptAsync(solution -> Platform.runLater(() -> {
 
-            if (solutionSteps != null) {
-                if(solutionSteps.size() == 0) {
+            if (solution != null) {
+                if(solution.getMoves().size() == 0) {
                     solutionArea.setText("Already solved");
                 } else {
                     showButton(applySolutionBtn);
                     hideButton(stopSolveBtn);
                     solutionArea.setText(
-                            "Solution found (" + solutionSteps.size() + " moves):\n" + String.join(" ", solutionSteps.stream().map(
+                            "Solution found (" + solution.getMoves().size() + " moves):\n" + String.join(" ", solution.getMoves().stream().map(
                                     rubikMove -> rubikMove.getNotation()
                             ).toList()));
-                    solutionArea.appendText("\nTotal time: " + durationSolved / 1_000_000.0 + " ms");
-                    solutionArea.appendText("\nMemory used: " + memoryUsed / (1024 * 1024) + "MB");
+                    solutionArea.appendText("\nTotal time: " + solution.getTimeUsed() / 1_000_000.0 + " ms");
+                    solutionArea.appendText("\nMemory used: " + solution.getMemoryUsed() / (1024 * 1024) + "MB");
+                    solutionArea.appendText("\nNode openned: " + solution.getNodeOpened());
+                    solutionArea.appendText("\nMaximmum node hold: " + solution.getMaximmumNodeHold());
                 }
             } else {
                 solutionArea.setText("No solution found within limits or an error occurred.");
@@ -365,6 +355,8 @@ public class RubikApp extends Application {
         shuffleBtn.setOnAction(e -> {
             hideButton(solveBtn);
             hideButton(resetBtn);
+            hideButton(applySolutionBtn);
+            solutionArea.setText("");
             rubik.shuffle(100);
             updateCubeVisual();
             showButton(solveBtn);
@@ -482,7 +474,9 @@ public class RubikApp extends Application {
 
         // ComboBox cho hàm heuristic
         heuristicComboBox = new ComboBox<>();
-        heuristicComboBox.getItems().addAll(HeuristicType.MANHATTAN.getName(), HeuristicType.PATTERN_DATABASE.getName());
+        for(HeuristicType type : HeuristicType.values()) {
+            heuristicComboBox.getItems().add(type.getName());
+        }
         heuristicComboBox.setValue(HeuristicType.MANHATTAN.getName()); // Mặc định chọn Manhattan
 
         // Thêm các ComboBox vào legend
@@ -490,36 +484,33 @@ public class RubikApp extends Application {
         VBox heuristicBox = new VBox(10, new Text("Choose Heuristic:"), heuristicComboBox);
         solverComboBox.setOnAction(e -> {
             String selectedSolver = solverComboBox.getValue();
-            if (selectedSolver.equals(SolverType.IDA_STAR.getName())) {
-                solver = IDASolver.getInstance();
-                showComboBox(heuristicComboBox);
-            } else if (selectedSolver.equals(SolverType.BFS.getName())) {
-                solver = BFSSolver.getInstance();
-                hideComboBox(heuristicComboBox);
-            }else if (selectedSolver.equals(SolverType.DFS.getName())) {
-                solver = DFSSolver.getInstance();
-                hideComboBox(heuristicComboBox);
+            for(SolverType type : SolverType.values()) {
+                if(selectedSolver.equals(type.getName())) {
+                    solver = type.getSolver();
+                }
             }
         });
         heuristicComboBox.setOnAction(e -> {
             if(solver instanceof IDASolver) {
                 IDASolver idaSolver = (IDASolver) solver;
                 String selectedHeuristic = heuristicComboBox.getValue();
-                if(selectedHeuristic.equals(HeuristicType.MANHATTAN.getName())) {
-                    idaSolver.setHeuristicFunction(ManhattanHeuristic::getValue);
+                for(HeuristicType type : HeuristicType.values()) {
+                    if(selectedHeuristic.equals(type.getName())) {
+                        idaSolver.setHeuristicFunction(type.getHeuristicFunction());
+                    }
                 }
             }
+            String selectedHeuristic = heuristicComboBox.getValue();
+
         });
         legend.getChildren().addAll(solverBox, heuristicBox);
     }
     public void hideComboBox(ComboBox<String> comboBox) {
         comboBox.setDisable(true);
-//        comboBox.setManaged(false);
     }
 
     public void showComboBox(ComboBox<String> comboBox) {
         comboBox.setDisable(false);
-//        comboBox.setManaged(true);
     }
     public static void main(String[] args) {
         launch(args);

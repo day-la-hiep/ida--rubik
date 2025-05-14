@@ -1,18 +1,13 @@
 package com.noface.rubik.heuristic;
 
-import com.noface.rubik.rubikImpl.Rubik;
-import com.noface.rubik.rubikImpl.Rubik2;
 import com.noface.rubik.enums.RubikFace;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.noface.rubik.rubikImpl.Rubik2;
 
 public class ManhattanHeuristic {
     private static final int MAX_MOVE_2X2 = 20;
 
 
-    public static int getValue(Rubik currentRubik) {
+    public static int getValue(Rubik2 currentRubik) {
 
         int totalDistanceSum = 0;
         int size = currentRubik.getSize();

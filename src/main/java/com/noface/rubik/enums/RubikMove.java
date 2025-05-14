@@ -1,22 +1,14 @@
 package com.noface.rubik.enums;
 
 public enum RubikMove {
+    // Do áp dụng với Rubik 2x2 nên chỉ lấy các move U, R, F
+    // Rubik 2x2 có tính chất đối xứng nên các thao tác còn lại đều có thể thực hiện thông qua
+    // 3 thao tác U, R, F trên
     U("U"),
-    UPrime("U'"),
-    L("L"),
-    LPrime("L'"),
     F("F"),
-    FPrime("F'"),
     R("R"),
-    RPrime("R'"),
-    B("B"),
-    BPrime("B'"),
-    D("D"),
-    DPrime("D'"),
     ;
-
     String notation;
-
     RubikMove(String notation) {
         this.notation = notation;
     }

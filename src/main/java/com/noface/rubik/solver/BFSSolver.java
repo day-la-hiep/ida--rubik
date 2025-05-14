@@ -2,7 +2,7 @@ package com.noface.rubik.solver;
 
 import com.noface.rubik.enums.RubikFace;
 import com.noface.rubik.enums.RubikMove;
-import com.noface.rubik.rubikImpl.Rubik;
+import com.noface.rubik.rubikImpl.Rubik2;
 
 import java.util.*;
 
@@ -18,23 +18,28 @@ public class BFSSolver implements Solver {
     private BFSSolver() {
 
     }
-    public List<RubikMove> solve(Rubik rubik) {
+    public SolutionResult solve(Rubik2 rubik) {
         isStopped = false;
-        Rubik initalRubik = rubik.clone();
+        Rubik2 initalRubik = rubik.clone();
         if(rubik.isSolved()){
-            return Collections.emptyList();
+            return new SolutionResult();
         }
+        int nodeOpened = 0;
+        int maximmumNodeHold = 0;
+        Runtime runtime = Runtime.getRuntime();
+        System.gc();
+        long startTime = System.nanoTime();
+        long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
+
         Set<Integer> visitedRubiks = new HashSet<>();
         Queue<SearchState> queue = new LinkedList<>();
         SearchState initState = new SearchState(rubik , new ArrayList<>(), 0);
         SearchState resultState = null;
         queue.add(initState);
         while (!queue.isEmpty()) {
+            maximmumNodeHold = Math.max(maximmumNodeHold, queue.size());
             if(isStopped == true){
                 return null;
-            }
-            if(visitedRubiks.size() % 100000 == 0){
-                System.out.println(visitedRubiks.size());
             }
             SearchState currentSearchState = queue.poll();
             if(currentSearchState.rubik.isSolved()){
@@ -44,12 +49,13 @@ public class BFSSolver implements Solver {
             for (RubikMove move : RubikMove.values()) {
                 List<RubikMove> currentPath = currentSearchState.path;
 
-                Rubik nextRubikState = currentSearchState.rubik.clone();
+                Rubik2 nextRubikState = currentSearchState.rubik.clone();
 
                 nextRubikState.applyMove(move);
                 Integer rubikState = extractRubikState(nextRubikState);
                 if(!visitedRubiks.contains(rubikState)) {
                     visitedRubiks.add(rubikState);
+                    nodeOpened++;
                     List<RubikMove> nextPath = new ArrayList<>(currentSearchState.path);
                     nextPath.add(move);
                     visitedRubiks.add(rubikState);
@@ -61,9 +67,10 @@ public class BFSSolver implements Solver {
             }
 
         }
-        List<String> res;
+        long timeUsed = System.nanoTime() - startTime;
+        long memoryUsed = runtime.totalMemory() - runtime.freeMemory() - memoryBefore;
         if(resultState != null) {
-            return resultState.path;
+            return new SolutionResult(nodeOpened, maximmumNodeHold, resultState.path, memoryUsed, timeUsed);
         }
 
         return null;
@@ -72,7 +79,7 @@ public class BFSSolver implements Solver {
     public void stopSolving() {
         isStopped = true;
     }
-    public Integer extractRubikState(Rubik rubik) {
+    public Integer extractRubikState(Rubik2 rubik) {
         int res = 0;
         for(char c : rubik.getState()){
             res = res * 6 + RubikFace.valueOf(Character.toString(c)).ordinal();
@@ -85,9 +92,9 @@ public class BFSSolver implements Solver {
     class SearchState {
         public List<RubikMove> path;
         public int depth;
-        public Rubik rubik;
+        public Rubik2 rubik;
 
-        public SearchState(Rubik rubik, List<RubikMove> path, int depth) {
+        public SearchState(Rubik2 rubik, List<RubikMove> path, int depth) {
             this.rubik = rubik;
             this.path = new ArrayList<>(path);
             this.depth = depth;

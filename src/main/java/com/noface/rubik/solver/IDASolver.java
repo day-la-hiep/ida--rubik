@@ -2,7 +2,7 @@ package com.noface.rubik.solver; // Đảm bảo cùng package với Rubik3.java
 
 import com.noface.rubik.enums.RubikMove;
 import com.noface.rubik.heuristic.ManhattanHeuristic;
-import com.noface.rubik.rubikImpl.Rubik;
+import com.noface.rubik.rubikImpl.Rubik2;
 
 import java.util.*;
 import java.util.function.Function;
@@ -18,13 +18,13 @@ public class IDASolver implements Solver {
     }
 
     private boolean isStopped = false;
-    private Function<Rubik, Integer> heuristicFunction;
+    private Function<Rubik2, Integer> heuristicFunction;
 
-    public Function<Rubik, Integer> getHeuristicFunction() {
+    public Function<Rubik2, Integer> getHeuristicFunction() {
         return heuristicFunction;
     }
 
-    public void setHeuristicFunction(Function<Rubik, Integer> heuristicFunction) {
+    public void setHeuristicFunction(Function<Rubik2, Integer> heuristicFunction) {
         this.heuristicFunction = heuristicFunction;
     }
 
@@ -33,7 +33,7 @@ public class IDASolver implements Solver {
 
     }
 
-    public IDASolver(Function<Rubik, Integer> heuristicFunction) {
+    public IDASolver(Function<Rubik2, Integer> heuristicFunction) {
         this.heuristicFunction = heuristicFunction;
     }
 
@@ -41,83 +41,89 @@ public class IDASolver implements Solver {
         isStopped = true;
     }
 
-    public List<RubikMove> solve(Rubik initialRubik) {
+    public SolutionResult solve(Rubik2 initialRubik) {
+        // Khởi tạo các thuộc tính đo lường
+        System.gc();
+        Runtime runtime = Runtime.getRuntime();
+        long memoryBeforeRun = runtime.totalMemory() - runtime.freeMemory();
+        long startTime = System.nanoTime();
+        int nodeOpened = 0;
+        int maximmumNodeHold = 0;
+
+        // Tạo bản copy rubik để không ảnh hưởng đến bản gốc
         initialRubik = initialRubik.clone();
+
+        // Lấy cận đầu tiên theo hàm heuristic
         int bound = heuristicFunction.apply(initialRubik);
-        System.out.println(bound);
+
+        // Khởi tạo biến path và kết quả để lưu kết quả
         List<RubikMove> path = new ArrayList<>();
         SearchState resultSearchState = null;
 
+
+        // Bắt đầu vòng lặp
         while (true) {
-            System.out.println("Bound: " + bound);
+            // Tạo 1 stack rỗng
             Stack<SearchState> stack = new Stack<>();
+            // Khởi tạo trạng thái S ban đầu và thêm vào stack
             SearchState initState = new SearchState(initialRubik, path, 0);
             stack.push(initState);
-            long cnt = 0;
+
             while (!stack.isEmpty()) {
+                // Cập nhật lại biến để ghi nhận số lượng node tối đa trong stack
+                maximmumNodeHold = Math.max(maximmumNodeHold, stack.size());
+                // Kiểm tra có yêu cầu dừng thuật toán từ người dùng không
                 if (isStopped) {
                     isStopped = false;
                     return null;
                 }
+
+                // Lấy trạng thái đầu tiên ở đỉnh stack
                 SearchState currentSearchState = stack.pop();
-                cnt++;
+                // Kiểm tra đây có phải trạng thái đích không
                 if (currentSearchState.rubik.isSolved()) {
                     resultSearchState = currentSearchState;
                     break;
                 }
+                // Thực hiện các thao tác xoay của Rubik
                 for (RubikMove move : RubikMove.values()) {
                     List<RubikMove> currentPath = currentSearchState.path;
-                    if (currentPath.size() > 0) {
-                        // Check for redundant moves
+                    // Prunning tránh trường hợp xoay 3 lần liên tiếp thì vô nghĩa
+                    if (currentPath.size() > 1) {
                         RubikMove lastMove = currentPath.get(currentPath.size() - 1);
-                        if (move.name().charAt(0) == lastMove.name().charAt(0)
-                                && move.name().length() != lastMove.name().length()) {
-                            // Nếu currentPath có ít nhất 2 phần tử và 2 phần tử cuối cùng là cùng một mặt
-                            if (currentPath.size() >= 2) {
-                                RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
-                                if (move.name().charAt(0) == secondLastMove.name().charAt(0)
-                                        && move.name().length() == secondLastMove.name().length()) {
-                                    continue; // Tránh U U U hoặc U' U' U'
-                                }
-                            }
-                        }
-
-                        // Tránh U rồi U'
-                        if (move.name().charAt(0) == lastMove.name().charAt(0)
-                                && move.name().length() != lastMove.name().length()) {
+                        RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
+                        if (move.equals(lastMove) && secondLastMove.equals(lastMove)) {
                             continue;
                         }
-
-                        // Tránh lặp lại 3 lần
-                        if (currentPath.size() > 1) {
-                            RubikMove secondLastMove = currentPath.get(currentPath.size() - 2);
-                            if (move.equals(lastMove) && secondLastMove.equals(lastMove)) {
-                                continue;
-                            }
-                        }
                     }
-                    Rubik nextRubikState = currentSearchState.rubik.clone();
-                    List<RubikMove> nextPath = new ArrayList<>(currentSearchState.path);
+
+                    // Tạo bản sao và thực hiện thao tác xoay
+                    Rubik2 nextRubikState = currentSearchState.rubik.clone();
                     nextRubikState.applyMove(move);
 
+                    // Thực hiện tính chi phí f và g
                     int gCost = currentSearchState.gCost + 1;
                     int fCost = Math.min(gCost + heuristicFunction.apply(nextRubikState), Integer.MAX_VALUE);
+
+                    // Nếu chi phí f <= ngưỡng thì thêm trạng thái vào stack
                     if (fCost <= bound) {
+                        List<RubikMove> nextPath = new ArrayList<>(currentSearchState.path);
                         nextPath.add(move);
+                        nodeOpened++;
                         stack.push(new SearchState(nextRubikState, nextPath, gCost));
-                        nextPath.remove(nextPath.size() - 1);
                     }
                 }
             }
-            System.out.println("Opened node in bound " + bound + " is: " + cnt);
 
             if (resultSearchState != null) {
                 break;
             }
             bound++;
         }
+        long duration = System.nanoTime() - startTime;
+        long memoryUsed = runtime.totalMemory() - runtime.freeMemory() - memoryBeforeRun;
         if (resultSearchState != null) {
-            return resultSearchState.path;
+            return new SolutionResult(nodeOpened, maximmumNodeHold, resultSearchState.path, memoryUsed, duration);
         }
         return null;
     }
@@ -125,9 +131,9 @@ public class IDASolver implements Solver {
     class SearchState {
         public List<RubikMove> path;
         public int gCost;
-        public Rubik rubik;
+        public Rubik2 rubik;
 
-        public SearchState(Rubik rubik, List<RubikMove> path, int gCost) {
+        public SearchState(Rubik2 rubik, List<RubikMove> path, int gCost) {
             this.rubik = rubik;
             this.path = new ArrayList<>(path);
             this.gCost = gCost;
